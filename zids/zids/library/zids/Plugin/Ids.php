@@ -6,7 +6,6 @@
 
 Requirements: Zend Framework (tested with version 1.10)
 			  PHP-IDS (tested with version 0.6.4)
-			           Copyright (c) 2008 PHPIDS group (http://php-ids.org)
 						  
 
 						  Copyright (c) 2010
@@ -36,104 +35,107 @@ LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
 ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+
+Copyright (c) 2008 PHPIDS group (http://php-ids.org)
+
 */
 
 /**
  * ZIDS (Zend Framework Intruder Detection System). Uses PHPIDS to detect intruders on your
  * website developed with Zend Framework. 
+ * 
+ * See README for a brief documentation and how-to-use
  *
  * @package    ZIDS
  * @author     Christian Koncilia
  * @copyright  Copyright (c) 2010 Christian Koncilia. (http://www.web-punk.com)
  * @license    New BSD License (see above)
- * @version    V.0.4 
+ * @version    V.0.6
  */
 class ZIDS_Plugin_Ids extends Zend_Controller_Plugin_Abstract 
 {
-	private $_log = null;
-	private $_email = null;	
-	private $_levels;
-	private $_logitems;
+    /**
+     * Contains all registered plugins
+     *
+     * @var array
+     */
+    private $_plugins = array();
+
+    /**
+     * Contains all levels and level options
+     *
+     * @var array
+     */
+    private $_levels;
+    
+    /**
+     * true, if ZIDS should aggregate all impacts in the session
+     *
+     * @var boolean
+     */    
 	private $_aggregate = false;
+
+    /**
+     * contains the configurtion (usually specified in application.ini)
+     *
+     * @var array
+     */    
 	private $_config;
 	
 	/**
 	 * Constructor
 	 *
-	 * @param array|Zend_Config $config
-	 * @param array (optional) $options. Valid options are 'log' (Zend_Log), 'email' (Zend_Mail)  
+	 * @param array|Zend_Config $config  
 	 * @return void
 	 */
-	public function __construct(array $config, array $options = null) {
+	public function __construct(array $config) {
 		$this->_config = $config;
-		
-		// analyze options set
-		if (isset($options)) {
-			if (array_key_exists('log', $options)) {
-				$this->setLog($options['log']);
-			}
-			if (array_key_exists('email', $options)) {
-				$this->setEmail($options['email']);
-			}
-		}
-		
-		// get options for unlikely-level
-		if (0 >= intval($config['level']['unlikely']['upto'])) {
-			throw new Exception('Upper bounds for unlikely-level has to be greater than zero!');
-		}
-		$this->_levels['unlikely']['upto'] = intval($config['level']['unlikely']['upto']);
-		$this->_levels['unlikely']['action'] = explode(',', $config['level']['unlikely']['action']);
-		
-		// get options for likely-level
-		if (intval($config['level']['likely']['upto']) <= intval($config['level']['unlikely']['upto'])) {
-			throw new Exception('Upper bounds for likely-level has to be greater than upper bounds for unlikely-level!');
-		}		
-		$this->_levels['likely']['upto'] = intval($config['level']['likely']['upto']);
-		$this->_levels['likely']['action'] = explode(',', $config['level']['likely']['action']);
-		
-		// get options for verylikely-level
-		if (intval($config['level']['verylikely']['upto']) <= intval($config['level']['likely']['upto'])) {
-			throw new Exception('Upper bounds for verylikely-level has to be greater than upper bounds for likely-level!');
-		}
-		$this->_levels['verylikely']['upto'] = intval($config['level']['verylikely']['upto']);
-		$this->_levels['verylikely']['action'] = explode(',', $config['level']['verylikely']['action']);
-		
-		// get options for attack-level
-		$this->_levels['attack']['action'] = explode(',', $config['level']['attack']['action']);
-		
-		// in case of a potential attack: what should ZIDS log?
-		$this->_logitems = explode(',', $this->_config['log']['items']);
-		array_walk($this->_logitems, create_function('&$arr','$arr=trim($arr);'));
-		
+
+		// get all defined levels including their options
+		$this->_levels = $config['level'];
+
 		// should ZIDS aggregate all impacts in the session
 		$this->_aggregate = $config['aggregate_in_session']; 
 	}
-	
+
 	/**
 	 * Register ZIDS plugin in the pre-Dispatch phase. 
 	 * @param Zend_Controller_Request_Abstract $request
 	 */
-	public function preDispatch(Zend_Controller_Request_Abstract $request)
+	public function routeShutdown(Zend_Controller_Request_Abstract $request)
     {
     	// should ZIDS ignore this request?
 		foreach ($this->_config['ignore']['requests']['module'] as $i => $module) {
-			if ($request->getModuleName() == $module && 
-				$request->getControllerName() == $this->_config['ignore']['requests']['controller'][$i] &&
-				$request->getActionName() == $this->_config['ignore']['requests']['action'][$i])
-				return $request;
+			// if module, controller and action have been specified, all three parameters have to match
+			if (isset($this->_config['ignore']['requests']['controller'][$i]) && 
+			 	isset($this->_config['ignore']['requests']['action'][$i])) {
+				if ($request->getModuleName() == $module && 
+					$request->getControllerName() == $this->_config['ignore']['requests']['controller'][$i] &&
+					$request->getActionName() == $this->_config['ignore']['requests']['action'][$i])
+						return $request;
+			// if only module and controller have been specified, both parameters have to match (action is being ignored)
+   		 	} else if (isset($this->_config['ignore']['requests']['controller'][$i])) {
+				if ($request->getModuleName() == $module && 
+					$request->getControllerName() == $this->_config['ignore']['requests']['controller'][$i])
+						return $request;
+			// if only module has been specified, module has to match (controller & action are being ignored)
+   		 	} else if ($request->getModuleName() == $module) {
+			 	return $request;
+			}
 		}
 
+		// init and start PHP IDS
 		require_once 'IDS/Init.php';
-		
 		$input = array ('REQUEST' => $_REQUEST, 
 						'GET' => $_GET, 
 						'POST' => $_POST, 
 						'COOKIE' => $_COOKIE );
 		$init = IDS_Init::init ( $this->_config['phpids']['config'] );
-
 		$ids = new IDS_Monitor ( $input, $init );
 		$result = $ids->run ();
 
+		// deal with the result of PHP IDS
 		if (! $result->isEmpty ()) {
 			// get PHP-IDS impact
 			$impact = $result->getImpact();
@@ -144,18 +146,23 @@ class ZIDS_Plugin_Ids extends Zend_Controller_Plugin_Abstract
 				$impact += $session->impact;
 				$session->impact = $impact;
 			}
-			
-			// check, ZIDS level of attack?
-			if ($impact <= $this->_levels['unlikely']['upto']) {
-				$level = 'unlikely';
-			} else if ($impact <= $this->_levels['likely']['upto']) {
-				$level = 'likely';
-			} else if ($impact <= $this->_levels['verylikely']['upto']) {
-				$level = 'verylikely';
-			} else {
-				$level = 'attack';
-			}
 
+			// find corresponding ZIDS level of attack
+			foreach ($this->_levels as $lvlname => $currlevel) {
+				if ('*' != $lvlname)
+					if (isset($currlevel['upto'])) { 
+						if ($impact <= $currlevel['upto']) {
+							$level = $lvlname;
+							break;
+						}
+					} else {
+						$level = $lvlname;
+						break;
+					}
+			}
+			if(!isset($level))
+				throw new Exception('ZIDS could not find a corresponding level for impact value ' . $impact . '! Please, check your ZIDS configuration in application.ini!');
+						
 			// which actions should ZIDS perform?
 			$actions = $this->_levels[$level]['action'];
 			// make sure to trim each action, e.g. ' email' => 'email'
@@ -163,20 +170,15 @@ class ZIDS_Plugin_Ids extends Zend_Controller_Plugin_Abstract
 			
 			// do we have to ignore this (potential) attack?
 			if (!in_array('ignore', $actions)) {
-				$notification = $this->getNotificationString($impact, $result, $level); 
-				if (in_array('log', $actions)) {
-					if ($this->_log == null) {
-						throw new Exception('ZIDS cannot use the log action unless you register a Zend_Log instance. Use the options array in the constructor or the setLog methode.');
+
+				// fire all defined actions
+				foreach ($actions as $action) {
+					$plugin = $this->getPlugin($action);
+					if (!$plugin) {
+						throw new Exception('ZIDS cannot find a plugin with name ' . $action);
 					}
-					$this->_log->log($notification, Zend_Log::ALERT);
-				}
-				if (in_array('email', $actions)) {
-					$this->sendMail($notification);
-				}
-				if (in_array('redirect', $actions)) {
-					$request->setModuleName( $this->_config['redirect']['module'] );
-					$request->setControllerName( $this->_config['redirect']['controller'] );
-					$request->setActionName( $this->_config['redirect']['action'] );
+					$plugin->injectRequest($request)
+						   ->fires($result, $impact, $level);
 				}
 			}			
 		}
@@ -184,102 +186,45 @@ class ZIDS_Plugin_Ids extends Zend_Controller_Plugin_Abstract
     }
     
     /**
-     * Assembles the notification string
-     * @param int $impact Impact of the potential attack
-     * @param IDS_Report $result the result of PHPIDSs check
-     * @param string $level the level of the potential attack
-     * @return string the assembled notification
+     * Register a new action plugin
+     *
+     * @param ZIDS_Plugin_ActionPlugin_Interface $plugin The plugin to register
+     * @return ZIDS_Plugin_Ids
      */
-    private function getNotificationString($impact, $result, $level) {
-    	$retstr = "ZIDS detected a potential attack! ZIDS LEVEL: " . $level;
-    	foreach ($this->_logitems as $item) {
- 		   	switch ($item) {
-    			case "ip":
-        			$retstr .= " from IP: " . $_SERVER['REMOTE_ADDR'];
-        			break;
-    			case "impact":
-        			$retstr .= " Impact: " . $impact;
-        			break;
-    			case "tags":
-        			$retstr .= " Tags: " . implode(',', $result->getTags());
-        			break;
-    			case "variables":
-        			$retstr .= " Variables: ";
-        			foreach ($result->getIterator() as $event) {
-        				$retstr .= $event->getName() . " (Tags: " . $event->getTags() . "; Value: " . $event->getValue() . "; Impact: " . $event->getImpact() . ") ";
-        			}
-        			break;
- 		   	}
-    	}
-    	return $retstr;
+    public function registerPlugin(ZIDS_Plugin_ActionPlugin_Interface $plugin)
+    {
+    	$plugin->setConfig($this->_config['level']);    	
+        $this->_plugins[$plugin->getIdentifier()] = $plugin;
+        return $this;
     }
-	
+
     /**
-     * Sends an email notification to the admin in case of a potential attack
-     * @param string $notification the emails text
-     * @return void
+     * Unregister an action plugin
+     *
+     * @param string $identifier identifier of the plugin to unregister
+     * @return ZIDS_Plugin_Ids
      */
-    private function sendMail($notification) {
-    	// if email has not been set using the constructor, 
-    	// try to fetch parameters from the application.ini
-    	if ($this->_email == null) {
-			$config = array(
-					'ssl' => $this->_config['email']['smtp']['ssl'], 
-					'port' => $this->_config['email']['smtp']['port'],
-					'auth' => $this->_config['email']['smtp']['auth'],
-    	            'username' => $this->_config['email']['smtp']['username'],
-	                'password' => $this->_config['email']['smtp']['password']);
-			$transport = new Zend_Mail_Transport_Smtp(
-							$this->_config['email']['smtp']['host'],
-							$config);
-			$mail = new Zend_Mail('UTF-8');
-
-			// setze Empfänger und Absender		
-			$mail->setFrom($this->_config['email']['from'], 'ZIDS Notification');
-			$mail->addTo($this->_config['email']['to']);
-    	} else {
-    		$mail = $this->_email;
-    	}
-
-    	// setzte Email Text & subject
-		$mail->setBodyHtml( $notification );
-		$mail->setBodyText( $notification );
-		$mail->setSubject( 'ZIDS Notification: potential attack on your website' );
-    	
-		$mail->send( (isset($transport)?$transport:null) );
+    public function unregisterPlugin($identifier)
+    {
+        $id = strtolower($identifier);
+        if (isset($this->_plugins[$id])) {
+            unset($this->_plugins[$id]);
+        }
+        return $this;
     }
     
-	/**
-	 * @return the $_log
-	 */
-	public function getLog() {
-		return $this->_log;
-	}
-
-	/**
-	 * @param $_log the $_log to set
-	 */
-	public function setLog($log) {
-		if (!is_a($log, 'Zend_Log')) {
-			throw new Exception('log-object provided is not of type Zend_Log!');
-		}
-		$this->_log = $log;
-	}
-
-	/**
-	 * @return the $_email
-	 */
-	public function getEmail() {
-		return $this->_email;
-	}
-
-	/**
-	 * @param $_email the $_email to set
-	 */
-	public function setEmail($email) {
-		if (!is_a($email, 'Zend_Mail')) {
-			throw new Exception('email-object provided is not of type Zend_Mail!');
-		}
-		$this->_email = $email;
-	}
+    /**
+     * Return a registered action plugin
+     *
+     * @param string $identifier identifier of the action plugin
+     * @return ZIDS_Plugin_ActionPlugin_Interface or false if plugin not found
+     */
+    public function getPlugin($identifier)
+    {
+        $id = strtolower($identifier);
+        if (isset($this->_plugins[$id])) {
+            return $this->_plugins[$id];
+        }
+        return false;
+    }
 }
