@@ -35,10 +35,6 @@ LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
 ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
-
-Copyright (c) 2008 PHPIDS group (http://php-ids.org)
-
 */
 
 /**
@@ -51,7 +47,7 @@ Copyright (c) 2008 PHPIDS group (http://php-ids.org)
  * @author     Christian Koncilia
  * @copyright  Copyright (c) 2010 Christian Koncilia. (http://www.web-punk.com)
  * @license    New BSD License (see above)
- * @version    V.0.6
+ * @version    V.0.6.1
  */
 class ZIDS_Plugin_Ids extends Zend_Controller_Plugin_Abstract 
 {
@@ -104,27 +100,29 @@ class ZIDS_Plugin_Ids extends Zend_Controller_Plugin_Abstract
 	 * @param Zend_Controller_Request_Abstract $request
 	 */
 	public function routeShutdown(Zend_Controller_Request_Abstract $request)
-    {
-    	// should ZIDS ignore this request?
-		foreach ($this->_config['ignore']['requests']['module'] as $i => $module) {
-			// if module, controller and action have been specified, all three parameters have to match
-			if (isset($this->_config['ignore']['requests']['controller'][$i]) && 
-			 	isset($this->_config['ignore']['requests']['action'][$i])) {
-				if ($request->getModuleName() == $module && 
-					$request->getControllerName() == $this->_config['ignore']['requests']['controller'][$i] &&
-					$request->getActionName() == $this->_config['ignore']['requests']['action'][$i])
-						return $request;
-			// if only module and controller have been specified, both parameters have to match (action is being ignored)
-   		 	} else if (isset($this->_config['ignore']['requests']['controller'][$i])) {
-				if ($request->getModuleName() == $module && 
-					$request->getControllerName() == $this->_config['ignore']['requests']['controller'][$i])
-						return $request;
-			// if only module has been specified, module has to match (controller & action are being ignored)
-   		 	} else if ($request->getModuleName() == $module) {
-			 	return $request;
+	{
+		// should ZIDS ignore this request?
+   		if (isset($this->_config['ignore'])) {
+			foreach ($this->_config['ignore']['requests']['module'] as $i => $module) {
+				// if module, controller and action have been specified, all three parameters have to match
+				if (isset($this->_config['ignore']['requests']['controller'][$i]) && 
+				 	isset($this->_config['ignore']['requests']['action'][$i])) {
+					if ($request->getModuleName() == $module && 
+						$request->getControllerName() == $this->_config['ignore']['requests']['controller'][$i] &&
+						$request->getActionName() == $this->_config['ignore']['requests']['action'][$i])
+							return $request;
+				// if only module and controller have been specified, both parameters have to match (action is being ignored)
+	   		 	} else if (isset($this->_config['ignore']['requests']['controller'][$i])) {
+					if ($request->getModuleName() == $module && 
+						$request->getControllerName() == $this->_config['ignore']['requests']['controller'][$i])
+							return $request;
+				// if only module has been specified, module has to match (controller & action are being ignored)
+	   		 	} else if ($request->getModuleName() == $module) {
+				 	return $request;
+				}
 			}
 		}
-
+   	
 		// init and start PHP IDS
 		require_once 'IDS/Init.php';
 		$input = array ('REQUEST' => $_REQUEST, 
@@ -132,6 +130,58 @@ class ZIDS_Plugin_Ids extends Zend_Controller_Plugin_Abstract
 						'POST' => $_POST, 
 						'COOKIE' => $_COOKIE );
 		$init = IDS_Init::init ( $this->_config['phpids']['config'] );
+		
+		// set PHPIDS options
+		if (isset($this->_config['phpids']['general']['base_path'])) {
+			$init->config['General']['base_path'] = $this->_config['phpids']['general']['base_path'];
+		}
+		if (isset($this->_config['phpids']['general']['use_base_path'])) {
+			$init->config['General']['use_base_path'] = $this->_config['phpids']['general']['use_base_path'];
+		}
+		if (isset($this->_config['phpids']['general']['tmp_path'])) {
+			$init->config['General']['tmp_path'] = $this->_config['phpids']['general']['tmp_path'];
+		}
+		if (isset($this->_config['phpids']['general']['filter_path'])) {
+			$init->config['General']['filter_path'] = $this->_config['phpids']['general']['filter_path'];
+    	}
+		if (isset($this->_config['phpids']['logging']['path'])) {
+			$init->config['Logging']['path'] = $this->_config['phpids']['logging']['path'];
+		}
+		if (isset($this->_config['phpids']['caching']['path'])) {
+			$init->config['Caching']['path'] = $this->_config['phpids']['caching']['path'];
+		}
+		
+		// html preparation
+    	if (isset($this->_config['phpids']['general']['html'])) {
+    		if (is_array($this->_config['phpids']['general']['html'])) {
+    			foreach ($this->_config['phpids']['general']['html'] AS $html) {
+    				$init->config['General']['html'][] = $html;
+    			}
+    		} else {
+				$init->config['General']['html'][] = $this->_config['phpids']['general']['html'];
+    		}
+		}
+		// json options
+    	if (isset($this->_config['phpids']['general']['json'])) {
+    		if (is_array($this->_config['phpids']['general']['json'])) {
+    			foreach ($this->_config['phpids']['general']['json'] AS $json) {
+    				$init->config['General']['json'][] = $json;
+    			}
+    		} else {
+				$init->config['General']['json'][] = $this->_config['phpids']['general']['json'];
+    		}
+		}
+		// exceptions (POST,GET,COOKIE)
+    	if (isset($this->_config['phpids']['general']['exceptions'])) {
+    		if (is_array($this->_config['phpids']['general']['exceptions'])) {
+    			foreach ($this->_config['phpids']['general']['exceptions'] AS $exceptions) {
+    				$init->config['General']['exceptions'][] = $exceptions;
+    			}
+    		} else {
+				$init->config['General']['exceptions'][] = $this->_config['phpids']['general']['exceptions'];
+    		}
+		}
+		
 		$ids = new IDS_Monitor ( $input, $init );
 		$result = $ids->run ();
 
@@ -149,7 +199,7 @@ class ZIDS_Plugin_Ids extends Zend_Controller_Plugin_Abstract
 
 			// find corresponding ZIDS level of attack
 			foreach ($this->_levels as $lvlname => $currlevel) {
-				if ('*' != $lvlname)
+				if (!in_array(strtolower($lvlname), array('*','all')))
 					if (isset($currlevel['upto'])) { 
 						if ($impact <= $currlevel['upto']) {
 							$level = $lvlname;
@@ -182,8 +232,8 @@ class ZIDS_Plugin_Ids extends Zend_Controller_Plugin_Abstract
 				}
 			}			
 		}
-		return $request;    	
-    }
+		return $request;
+	}
     
     /**
      * Register a new action plugin
