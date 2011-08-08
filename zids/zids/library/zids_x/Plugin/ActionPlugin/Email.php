@@ -7,8 +7,8 @@
  * @package    ZIDS
  * @author     Christian Koncilia
  * @copyright  Copyright (c) 2010 Christian Koncilia. (http://www.web-punk.com)
- * @license    New BSD License (see above)
- * @version    V.0.6 
+ * @license    New BSD License (see Ids.php)
+ * @version    V.1.0.1
  */
 
 class ZIDS_Plugin_ActionPlugin_Email extends ZIDS_Plugin_ActionPlugin_Action {
@@ -139,13 +139,16 @@ class ZIDS_Plugin_ActionPlugin_Email extends ZIDS_Plugin_ActionPlugin_Action {
         			$retstr .= " Impact: " . $impact . '<br>';
         			break;
     			case "tags":
-        			$retstr .= " Tags: " . implode(',', $result->getTags()) . '<br>';
+        			$retstr .= " Tags: " . implode(', ', $result->getTags()) . '<br>';
         			break;
     			case "variables":
-        			$retstr .= " Variables: ";
+        			$retstr .= " Variables: <br><ul>";
         			foreach ($result->getIterator() as $event) {
-        				$retstr .= $event->getName() . " (Tags: " . $event->getTags() . "; Value: " . $event->getValue() . "; Impact: " . $event->getImpact() . ")<br>";
+        				$retstr .= "<li>". $event->getName() . 
+        						   " (Tags: " . implode(', ', $event->getTags()) . "; Value: " . htmlentities( $event->getValue() ) . "; Impact: " . $event->getImpact() . 
+        						   ")</li>";
         			}
+        			$retstr .= "</ul>";
         			break;
  		   	}
     	}

@@ -6,9 +6,8 @@
 
 Requirements: Zend Framework (tested with version 1.10)
 			  PHP-IDS (tested with version 0.6.4)
-						  
 
-						  Copyright (c) 2010
+				   	   Copyright (c) 2010 - 2011
 						 by Christian KONCILIA
 
 						http://www.web-punk.com
@@ -47,11 +46,16 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * @author     Christian Koncilia
  * @copyright  Copyright (c) 2010 Christian Koncilia. (http://www.web-punk.com)
  * @license    New BSD License (see above)
- * @version    V.0.6.1
+ * @version    V.1.0.1
  */
 class ZIDS_Plugin_Ids extends Zend_Controller_Plugin_Abstract 
 {
     /**
+     * The currently used version of ZIDS
+     */
+	public $VERSION_STRING = 'V.1.0.1';
+
+	/**
      * Contains all registered plugins
      *
      * @var array
@@ -131,57 +135,11 @@ class ZIDS_Plugin_Ids extends Zend_Controller_Plugin_Abstract
 						'COOKIE' => $_COOKIE );
 		$init = IDS_Init::init ( $this->_config['phpids']['config'] );
 		
-		// set PHPIDS options
-		if (isset($this->_config['phpids']['general']['base_path'])) {
-			$init->config['General']['base_path'] = $this->_config['phpids']['general']['base_path'];
+		// inject PHPIDS parameters into PHPIDS configuration
+		if (isset($this->_config['phpids'])) {
+			$init->config = array_replace_recursive($init->config, $this->_config['phpids']);
 		}
-		if (isset($this->_config['phpids']['general']['use_base_path'])) {
-			$init->config['General']['use_base_path'] = $this->_config['phpids']['general']['use_base_path'];
-		}
-		if (isset($this->_config['phpids']['general']['tmp_path'])) {
-			$init->config['General']['tmp_path'] = $this->_config['phpids']['general']['tmp_path'];
-		}
-		if (isset($this->_config['phpids']['general']['filter_path'])) {
-			$init->config['General']['filter_path'] = $this->_config['phpids']['general']['filter_path'];
-    	}
-		if (isset($this->_config['phpids']['logging']['path'])) {
-			$init->config['Logging']['path'] = $this->_config['phpids']['logging']['path'];
-		}
-		if (isset($this->_config['phpids']['caching']['path'])) {
-			$init->config['Caching']['path'] = $this->_config['phpids']['caching']['path'];
-		}
-		
-		// html preparation
-    	if (isset($this->_config['phpids']['general']['html'])) {
-    		if (is_array($this->_config['phpids']['general']['html'])) {
-    			foreach ($this->_config['phpids']['general']['html'] AS $html) {
-    				$init->config['General']['html'][] = $html;
-    			}
-    		} else {
-				$init->config['General']['html'][] = $this->_config['phpids']['general']['html'];
-    		}
-		}
-		// json options
-    	if (isset($this->_config['phpids']['general']['json'])) {
-    		if (is_array($this->_config['phpids']['general']['json'])) {
-    			foreach ($this->_config['phpids']['general']['json'] AS $json) {
-    				$init->config['General']['json'][] = $json;
-    			}
-    		} else {
-				$init->config['General']['json'][] = $this->_config['phpids']['general']['json'];
-    		}
-		}
-		// exceptions (POST,GET,COOKIE)
-    	if (isset($this->_config['phpids']['general']['exceptions'])) {
-    		if (is_array($this->_config['phpids']['general']['exceptions'])) {
-    			foreach ($this->_config['phpids']['general']['exceptions'] AS $exceptions) {
-    				$init->config['General']['exceptions'][] = $exceptions;
-    			}
-    		} else {
-				$init->config['General']['exceptions'][] = $this->_config['phpids']['general']['exceptions'];
-    		}
-		}
-		
+
 		$ids = new IDS_Monitor ( $input, $init );
 		$result = $ids->run ();
 
@@ -234,7 +192,7 @@ class ZIDS_Plugin_Ids extends Zend_Controller_Plugin_Abstract
 		}
 		return $request;
 	}
-    
+	
     /**
      * Register a new action plugin
      *

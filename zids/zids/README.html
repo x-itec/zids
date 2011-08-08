@@ -25,15 +25,16 @@
 	<div id="author">
    Requirements: Zend Framework (tested with version 1.10)<br>
 	    		 PHP-IDS (tested with version 0.6.4)<br><br><br>
-						  Copyright (c) 2010<br>
-						 by Christian KONCILIA<br><br>
+						  Copyright (c) 2010 - 2011<br>
+						 by Christian KONCILIA<br>
+						 <a href="mailto:admin@web-punk.com">admin@web-punk.com</a><br><br>
 						<a href="http://www.web-punk.com">http://www.web-punk.com</a>
 	</div>
 </div>
 <h1>LICENSE</h1>
 <p>See \library\zids\Plugin\Ids.php for license information.</p>
 <h1>VERSION</h1>
-<p>This is ZIDS Version 0.6.0</p>
+<p>This is ZIDS Version 1.0.1</p>
 <h1>WHAT IS ZIDS</h1>
 <p>"<i>Never ever trust user input!</i>" - ZIDS helps you follow this golden rule of programming web applications. 
 ZIDS uses PHP-IDS to analyze user inputs. The impact of a request is 
@@ -48,49 +49,48 @@ For each level you may define:</p>
 <li>an interval that defines how the impact will be categorized, e.g. impact 
     0-10 will be considered as an 'unlikely' attack whereas an impact between 11 and 30 will be considered as a 'likely' attack.</li>
 <li>how to deal with an attack, e.g. ignore the attack, log the attack, send 
-    an email to the admin, redirect the user to a special side (controller/action), etc.</li>
+    an email to the admin, redirect the user to a special page (i.e. to a special controller/action), etc.</li>
 </ul>	
 <p>
 Furthermore, ZIDS enables you to aggregate all impacts in your session. This is useful 
 as usually an attacker will start to analyze your website with a series of "small" 
 attacks, i.e. attacks with an impact below 15. If you enable aggregation, four attacks 
 with an impact of 5 will aggregate to an attack with an impact of 20 (5 + 5 + 5 + 5).</p>
+<p class="attention">ZIDS is open source! In case you are using ZIDS, I would appreciate if you could send a short email to <a href="mailto:admin@web-punk.com?subject=Hey I am using ZIDS">admin@web-punk.com</a>.<br>
+Follow me on <a href="http://twitter.com/web_punk">twitter</a> to keep up to date.</p>
 <h1>INSTALLING ZIDS</h1>
 <ol>
 <li>Download latest version of ZIDS from <a href="http://code.google.com/p/zids/downloads/list">http://code.google.com/p/zids/downloads/list</a></li>
-<li>Download PHP-IDS (<a href="http://php-ids.org/">http://php-ids.org/</a>). ZIDS has been tested with PHP-IDS 0.6.4</li>
+<li>Download PHP-IDS (<a href="http://phpids.org/">http://phpids.org/</a>). ZIDS has been tested with PHP-IDS 0.6.4</li>
 <li>Extract and copy the PHP-IDS code to your project's \library folder, e.g. \library\phpids-0.6.4</li>
-<li>Open \library\phpids-0.6.4\lib\IDS\Config\Config.ini.php! Set base_path to your IDS folder
-      and enable use_base_path, e.g.<pre>
-base_path       = "C:/myproject/library/phpids-0.6.4/lib/IDS/"
-use_base_path   = true
-</pre></li>
 <li>Extract and copy the ZIDS code to your project's \library folder, e.g. \library\zids\Plugin\Ids.php</li>
-<li>Adopt your application.ini file (see \zids\application\config\application.ini in the ZIDS package for a sample 
-      configuration)</li>
-<li>Adopt your bootstrap.php file (see next chapter)</li>
+<li>Adapt your application.ini file (see \zids\application\config\application.ini in the ZIDS package for a sample 
+      configuration).<br/>ZIDS also supports <strong>application.xml</strong> files. The only difference to using an INI file is that 
+	  you have to use the <code>&lt;all&gt;</code> tag instead of an asterisk. 
+	  Please, have a look at <a href="#options">Specific and Global Options</a> for more information.</li>
+<li>Adapt your bootstrap.php file (see next chapter)</li>
 </ol>
 <h1>REGISTER THE ZIDS PLUGIN</h1>
 Copy and paste the following source into your bootstrap.php file:
 <pre>
 protected function _initZIDS() {
-    // Setup autoloader with namespace
+    // Setup autoloader
     $autoloader = Zend_Loader_Autoloader::getInstance();
     $autoloader->registerNamespace('ZIDS');
         
-    // Ensure the front controller is initialized
+    // Make sure that the front controller is initialized
     $this->bootstrap('FrontController');
 
-    // Retrieve the front controller from the bootstrap registry
+    // Retrieve the front controller
     $front = $this->getResource('FrontController');
 
-    // Only enable zfdebug if options have been specified for it
+    // Register ZIDS if options have been specified
     if ($this->hasOption('zids'))
     {
         // Create ZIDS instance
         $zids = new ZIDS_Plugin_Ids($this->getOption('zids'));
 
-        // create a logger (ADOPT THIS TO YOUR NEEDS!)
+        // create a logger (ADAPT THIS TO YOUR NEEDS!)
         $logger = new Zend_Log ();
         $filter = new Zend_Log_Filter_Priority(Zend_Log::ERR);
         $writer = new Zend_Log_Writer_Stream ("../data/logs/log.txt");
@@ -147,7 +147,26 @@ zids.level.unlikely.option.log.loglevel = 6
 zids.level.*.option.log.loglevel = 3
 </pre>
 The first definition is a specific definition as it specifically sets the loglevel for the impact level 'unlikely' to 6. The second definition is a general definition as 
-uses the asterisk (*). 
+it uses the asterisk (*). 
+
+<p class="attention">If you don't use an 'ini'-file for your application configuration but prefer xml, please use the <code>&lt;all&gt;</code> tag instead of the asterisk (*). Hence, your application.xml could look like this:
+<pre>
+&lt;zids&gt;
+    ...
+	&lt;level&gt;
+		&lt;all&gt;
+			&lt;option&gt;
+				&lt;log&gt;
+					&lt;loglevel&gt;3&lt;/loglevel&gt;
+				&lt;/log&gt;
+			&lt;/option&gt;
+		&lt;/all&gt;
+	&lt;/level&gt;
+    ...	
+&lt;/zids&gt;
+</pre>
+</p>
+
 <p>A general definition sets an option for all impact levels. A specific definition sets an option only for the specified level.</p>
 <a class="attention">Specific options always override general options!</a>
 <p>
@@ -259,15 +278,14 @@ public function getIdentifier();
 
 <h1><a name="basicconfig">ZIDS CONFIGURATION (application.ini)</a></h1>
 Beside the options defined for the ZIDS plugins, ZIDS uses the following options in the application.ini:
-<h4>application.ini options (example & description)</h4>
+<h4>application.ini options (example &amp; description)</h4>
 <pre>
 zids.aggregate_in_session = true
 zids.ignore.requests.module.0 = default
 zids.ignore.requests.controller.0 = index
 zids.ignore.requests.action.0 = sidebar
-zids.phpids.config = APPLICATION_PATH "/library/phpids-0.6.4/lib/IDS/Config/Config.ini.php"
 </pre>
-<p><code>aggregate_in_session</code> if set to true, ZIDS will aggregate the impact of each attack in the session.
+<p><code>aggregate_in_session:</code> if set to true, ZIDS will aggregate the impact of each attack in the session.
 For instance, if the attacker submits a request with an impact of 5, and later on submits a 
 request with an impact of 10, the second request will be treated as a request with an impact
 of 15 (=5 + 10)
@@ -278,9 +296,44 @@ ZIDS!</p>
 If only the module and controller have been specified, both parameters have to match (action is being ignored). If only module has 
 been specified, the module has to match (controller & action are being ignored).
 </p>
-<p><code>phpids.config</code> defines where to find the PHP_IDS configuration file.</p>
+
+<h2><a name="phpidsconfig">PHPIDS CONFIGURATION via application.ini</a></h2>
+<p>PHPIDS uses it's own configuration file (usually, you'll find this config file in <code>/lib/IDS/Config/Config.ini.php</code> in your PHPIDS directory).</p>
+<p>For your convenience, you may define all PHPIDS parameters in your <code>application.ini</code> file. Therefore, you don't have to manage two configuration files.</p>
+
+<p>ZIDS simply passes all <code>zids.phpids.*</code> parameters defined in your <code>application.ini</code> to PHPIDS.</p>
+<p>Basically, you'll only need the following two parameters:</p>  
+<pre>
+zids.phpids.config = APPLICATION_PATH "/library/phpids-0.6.4/lib/IDS/Config/Config.ini.php"
+zids.phpids.General.base_path = APPLICATION_PATH "/library/phpids-0.6.4/lib/IDS/"
+</pre>
+<p><code>zids.phpids.config</code> defines where the PHPIDS config file can be found.</p>
+<p><code>zids.phpids.General.base_path</code> defines the working directory for PHPIDS</p>
+<p>You'll have to define these two options in order to work with ZIDS. However, PHPIDS allows you to define much more parameters. For instance, you may define which fields should never be parsed by PHPIDS or which fields contain JSON data and should be treated as such.</p>
+<p>As ZIDS simply passes all <code>zids.phpids.*</code> parameters defined in your <code>application.ini</code> to PHPIDS, you may for instance use...</p>
+<pre>
+zids.phpids.Caching.path = APPLICATION_PATH "/data/cache/ids/default_filter.cache"
+</pre>
+...to define the caching path used by PHPIDS
+<p>Please, have a look at the PHPIDS manual for further information.</p>
+
+<h1>QUESTIONS?</h1>
+Got questions? Please, send an email to <a href="mailto:admin@web-punk.com?subject=Question regarding ZIDS">admin@web-punk.com</a>
 
 <h1>CHANGE LOG</h1>
+<ul>
+<li>Version 1.0.1</li>
+<ul>
+<li><strong>Feature</strong>: No need to maintain PHPIDS config file anymore. You may now use the ZIDS section in your application.ini to configure all parameters for PHPIDS. Special thanks to Michael Scholl!</li>
+<li><strong>Feature</strong>: Update example application.ini with more details and descriptions.</li>
+<li><strong>Bug</strong>: The Email plugin now escapes the content of an attack before sending the email.</li>
+<li><strong>Bug</strong>: Some other minor bugs (too lazy to list them here ;-))</li>
+</ul>
+<li>Version 0.6.1</li>
+<ul>
+<li><strong>Feature</strong>: ZIDS now also supports XML configuration files, i.e. use application.xml instead of application.ini (thanks to panosru for her/his contribution)</li>
+</ul>
+<li>Version 0.6.0</li>
 <ul>
 <li><strong>Feature</strong>: define any number of levels you want</li>
 <li><strong>Design</strong>: actions (log, email, redirect, etc.) are now plugins</li>
@@ -291,6 +344,7 @@ been specified, the module has to match (controller & action are being ignored).
 <li><strong>Feature</strong>: define which module/controller/action to ignore. If you specify only a module, all 
            requests to this module will be ignored. If you specify a module + controller, all 
            actions in this controller will be ignored</li>
+</ul>		   
 </ul>		   
 </div>		   
 </body>

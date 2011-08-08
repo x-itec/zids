@@ -7,8 +7,8 @@
  * @package    ZIDS
  * @author     Christian Koncilia
  * @copyright  Copyright (c) 2010 Christian Koncilia. (http://www.web-punk.com)
- * @license    New BSD License (see above)
- * @version    V.0.6 
+ * @license    New BSD License (see Ids.php)
+ * @version    V.1.0.1 
  */
 
 class ZIDS_Plugin_ActionPlugin_Ignore extends ZIDS_Plugin_ActionPlugin_Action {
